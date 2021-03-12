@@ -6,33 +6,22 @@ class AsthSys {
         $this->PDO = $PDOconn;
     }
     
-    public function registraNuovoUtente($post) {
-        /* CONTROLLI
-         * [OK] username non sia già presente e abbia solo lettere e numeri da 8 a 12 caratteri
-         * [OK] password che abbia solo lettere, numeri ed alcuni caratteri speciali
-         * [OK] password e conferma password devono coincidere
-         * [OK] email passata valida
-         * [OK] presenza nome
-         */
-
-        $in_uname = trim($post['uname']);
-        $in_pwd = trim($post['pwd']);
-        $in_repwd = trim($post['re_pwd']);
-        $in_nome = trim($post['nome']);
-        $in_email = trim($post['email']);
-
-        if(!(ctype_alnum($in_uname) && mb_strlen($in_uname) >= 8 && mb_strlen($in_uname) <= 12)){
-            throw new Exception("Username non valida");
-        }
-        
-        $q = "SELECT * FROM Utenti WHERE (username = :uname)";
+    public function usernameExists($in_uname){
+        $q = "SELECT * FROM utenti WHERE (username = :uname)";
         $rq =  $this->PDO->prepare($q);
         $rq->bindParam(":uname", $in_uname, PDO::PARAM_STR);
         $rq->execute();
         if($rq->rowCount() > 0){
-            throw new Exception("Username già presente");
+            return TRUE;
         }
+        return FALSE;
+    }
 
+    public function checkModuli($in_uname,$in_pwd,$in_repwd,$in_nome,$in_email){
+        if(!(ctype_alnum($in_uname) && mb_strlen($in_uname) >= 8 && mb_strlen($in_uname) <= 12)){
+            throw new Exception("Username non valida");
+        }
+        
         if(!preg_match('/^[a-zA-Z0-9_\-\$@#!]{8,}$/', $in_pwd)) {
             throw new Exception("Password non valida*");
         }
@@ -48,11 +37,41 @@ class AsthSys {
         if(mb_strlen($in_nome) == 0){
             throw new Exception("Nome non indicato!*");
         }
+    }
+
+    public function registraNuovoUtente($post) {
+        /* CONTROLLI
+         * [OK] username non sia già presente e abbia solo lettere e numeri da 8 a 12 caratteri
+         * [OK] password che abbia solo lettere, numeri ed alcuni caratteri speciali
+         * [OK] password e conferma password devono coincidere
+         * [OK] email passata valida
+         * [OK] presenza nome
+         */
+
+        $in_uname = trim($post['uname']);
+        $in_pwd = trim($post['pwd']);
+        $in_repwd = trim($post['re_pwd']);
+        $in_nome = trim($post['nome']);
+        $in_email = trim($post['email']);
+
+        try {
+            if($this->usernameExists($in_uname)){
+                return "L'username indicata è gia presente";
+            }
+        } catch(PDOException $e){
+            return "Sembra esserci un problema. Riprova tra alcuni minuti";
+        }
+    try{
         
+        $this->checkModuli($in_uname,$in_pwd,$in_repwd,$in_nome,$in_email);
+        
+    }catch(Exception $e){
+        return $e->getMessage();
+    }
         $pwd_hash = password_hash($in_pwd, PASSWORD_DEFAULT);
 
         try {
-            $q = "INSERT INTO Utenti (username, password, nome, email) VALUES(:uname, :pwd, :nome, :email)";
+            $q = "INSERT INTO utenti (username, password, nome, email) VALUES(:uname, :pwd, :nome, :email)";
             $rq = $this->PDO->prepare($q);
             $rq->bindParam(":uname", $in_uname, PDO::PARAM_STR);
             $rq->bindParam(":pwd", $pwd_hash, PDO::PARAM_STR);
@@ -63,13 +82,13 @@ class AsthSys {
             echo "Errore inserimanto!";
         }
 
-        return TRUE;
+        return "Sei stato correttamente registrato";
         
     }
     public function login(string $username, string $password) {
         try {
             //controllo corripondenza username e password
-            $q = "SELECT * FROM Utenti WHERE username = :username";
+            $q = "SELECT * FROM utenti WHERE username = :username";
             $rq = $this->PDO->prepare($q);
             $rq->bindParam(":username", $username, PDO::PARAM_STR);
             $rq->execute();
@@ -84,7 +103,7 @@ class AsthSys {
             //logghiamo l'utente
             $session_id = session_id();
             $user_id = $record['id'];
-            $q = "INSERT INTO UtentiLoggati (session_id, user_id) VALUES (:sessionid, :userid)";
+            $q = "INSERT INTO utentiLoggati (session_id, user_id) VALUES (:sessionid, :userid)";
             $rq = $this->PDO->prepare($q);
             $rq->bindParam(":sessionid", $session_id, PDO::PARAM_STR);
             $rq->bindParam(":userid", $user_id, PDO::PARAM_INT);
@@ -98,7 +117,7 @@ class AsthSys {
 
     public function logout() {
         try {
-            $q = "DELETE FROM UtentiLoggati WHERE session_id = :sessionid";
+            $q = "DELETE FROM utentiLoggati WHERE session_id = :sessionid";
             $rq = $this->PDO->prepare($q);
             $session_id = session_id();
             $rq->bindParam(":sessionid", $session_id, PDO::PARAM_STR);
@@ -110,7 +129,7 @@ class AsthSys {
     }
 
     public function utenteLoggato() {
-        $q = "SELECT * FROM UtentiLoggati WHERE session_id = :sessionid";
+        $q = "SELECT * FROM utentiLoggati WHERE session_id = :sessionid";
         $rq = $this->PDO->prepare($q);
         $session_id = session_id();
         $rq->bindParam(":sessionid", $session_id, PDO::PARAM_STR);
@@ -121,5 +140,3 @@ class AsthSys {
         return TRUE;
     }
 }
-
-?>
