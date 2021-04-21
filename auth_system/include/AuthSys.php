@@ -4,14 +4,12 @@ class AsthSys
     private $PDO;
     private $mail;
 
-    public function __construct($PDOconn, $mail)
-    {
+    public function __construct($PDOconn, $mail){
         $this->PDO = $PDOconn;
         $this->mail = $mail;
     }
 
-    public function usernameExists($in_uname)
-    {
+    public function usernameExists($in_uname){
         $q = "SELECT * FROM utenti WHERE (username = :uname)";
         $rq =  $this->PDO->prepare($q);
         $rq->bindParam(":uname", $in_uname, PDO::PARAM_STR);
@@ -22,8 +20,7 @@ class AsthSys
         return FALSE;
     }
 
-    public function checkModuli($post)
-    {
+    public function checkModuli($post){
         if (!(ctype_alnum($post['uname']) && mb_strlen($post['uname']) >= 8 && mb_strlen($post['uname']) <= 12)) {
             throw new Exception("Username non valida");
         }
@@ -45,8 +42,7 @@ class AsthSys
         }
     }
 
-    public function addUser($post, $pwd_hash, $token)
-    {
+    public function addUser($post, $pwd_hash, $token): int{
         $q = "INSERT INTO utenti (username, password, nome, email, token) VALUES(:uname, :pwd, :nome, :email, :token)";
         $rq = $this->PDO->prepare($q);
         $rq->bindParam(":uname", $post['uname'], PDO::PARAM_STR);
@@ -55,6 +51,7 @@ class AsthSys
         $rq->bindParam(":email", $post['email'], PDO::PARAM_STR);
         $rq->bindParam(":token", $token, PDO::PARAM_STR);
         $rq->execute();
+        return $this->PDO->lastInsertId();
     }
 
     public function registraNuovoUtente($post) {
@@ -70,7 +67,13 @@ class AsthSys
             $this->checkModuli($post);
             $pwd_hash = password_hash($post['pwd'], PASSWORD_DEFAULT);
             $token = bin2hex(random_bytes(32));
-            $this->addUser($post, $pwd_hash, $token);
+            $id = $this->addUser($post, $pwd_hash, $token);
+
+            //Invio mail con link attivazione
+            $queryString = ['id' => $id, 'token' => $token];
+            $linkAttivazione = "http://localhost/auth_system/attivazione.php?"
+            . http_build_query($queryString);
+            $this->inviaEmailAttivazione($post['email'], $linkAttivazione);
         }
         catch (PDOException $e) {
             return "Sembra esserci un problema. Riprova tra alcuni minuti";
@@ -80,8 +83,28 @@ class AsthSys
         }
         return "Sei stato correttamente registrato";
     }
-    public function login(string $username, string $password)
-    {
+
+    public function inviaEmailAttivazione($toEmail, $linkAttivazione){
+        $mail = &$this->mail;
+        $mail->IsSMTP();
+        $mail->SMTPAuth = true;
+        $mail->SMTPSecure = $mail::ENCRYPTION_SMTPS;
+        $mail->Host = "smtp.gmail.com";
+        $mail->Port = 465;
+        $mail->IsHTML(true);
+        $mail->Username = "prova12345prova12345prova12345@gmail.com";
+        $mail->Password = "prova12345";
+        $mail->SetFrom("prova12345prova12345prova12345@gmail.com","Email di conferma Account (Ciao Bello)");
+        $mail->AddAddress($toEmail);
+        $mail->Subject = "Attivazione Account";
+        $mail->Body = "<h3>é necessario confermare la registrazione</h3>"
+        . "<p>Clicca al seuente link: <a href= '$linkAttivazione'>Conferma Registrazione</a></p>";
+        if (!$mail->send()){
+            throw new Exception($mail->ErrorInfo);
+        }
+        return TRUE;
+    }
+    public function login(string $username, string $password){
         try {
             //controllo corripondenza username e password
             $q = "SELECT * FROM utenti WHERE username = :username";
@@ -111,8 +134,7 @@ class AsthSys
         }
     }
 
-    public function logout()
-    {
+    public function logout(){
         try {
             $q = "DELETE FROM utentiLoggati WHERE session_id = :sessionid";
             $rq = $this->PDO->prepare($q);
@@ -125,8 +147,7 @@ class AsthSys
         return TRUE;
     }
 
-    public function utenteLoggato()
-    {
+    public function utenteLoggato(){
         $q = "SELECT * FROM utentiLoggati WHERE session_id = :sessionid";
         $rq = $this->PDO->prepare($q);
         $session_id = session_id();
