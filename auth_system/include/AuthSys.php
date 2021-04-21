@@ -140,6 +140,9 @@ class AsthSys
             if (!password_verify($password, $record['password'])) {
                 throw new Exception("I dati forniti non sono validi per il login (PASS)");
             }
+
+            $this->PDO->query("DELETE FROM UtentiLoggati WHERE user_id ={$record['id']}");
+
             //logghiamo l'utente
             $session_id = session_id();
             $user_id = $record['id'];
