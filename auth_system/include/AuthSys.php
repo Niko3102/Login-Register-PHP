@@ -9,6 +9,24 @@ class AsthSys
         $this->mail = $mail;
     }
 
+    public function confermaRegistrazione($id, $token){
+        try {
+            $q = "SELECT id FROM Utenti WHERE id = :id AND token = :token";
+            $rq = $this->PDO->prepare($q);
+            $rq->bindParam(":id", $id, PDO::PARAM_INT);
+            $rq->bindParam(":token", $token, PDO::PARAM_STR);
+            $rq->execute();
+            if($rq->rowCount() == 0){
+                return FALSE;
+            }
+            $this->PDO->query("UPDATE Utenti SET attivato = 1 WHERE id = $id");
+            return TRUE;
+        }catch(PDOException $e){
+            return FALSE;
+        }
+
+    }
+
     public function usernameExists($in_uname){
         $q = "SELECT * FROM utenti WHERE (username = :uname)";
         $rq =  $this->PDO->prepare($q);
@@ -71,7 +89,7 @@ class AsthSys
 
             //Invio mail con link attivazione
             $queryString = ['id' => $id, 'token' => $token];
-            $linkAttivazione = "http://localhost/auth_system/attivazione.php?"
+            $linkAttivazione = "http://localhost/Progetto_Scuola/Login-Register-PHP/auth_system/attivazione.php?"
             . http_build_query($queryString);
             $this->inviaEmailAttivazione($post['email'], $linkAttivazione);
         }
@@ -115,6 +133,9 @@ class AsthSys
                 throw new Exception("I dati forniti non sono validi per il login (NAME)");
             }
             $record = $rq->fetch(PDO::FETCH_ASSOC);
+            if($record['attivato'] == 0) {
+                throw new Exception("Login non consentito.");
+            }
             //var_dump($record);
             if (!password_verify($password, $record['password'])) {
                 throw new Exception("I dati forniti non sono validi per il login (PASS)");
