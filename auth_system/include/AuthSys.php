@@ -112,10 +112,10 @@ class AsthSys
         $mail->IsHTML(true);
         $mail->Username = "prova12345prova12345prova12345@gmail.com";
         $mail->Password = "prova12345";
-        $mail->SetFrom("prova12345prova12345prova12345@gmail.com","Email di conferma Account (Ciao Bello)");
+        $mail->SetFrom("$toEmail","Email di conferma Account");
         $mail->AddAddress($toEmail);
         $mail->Subject = "Attivazione Account";
-        $mail->Body = "<h3>é necessario confermare la registrazione</h3>"
+        $mail->Body = "<h3>E' necessario confermare la registrazione</h3>"
         . "<p>Clicca al seuente link: <a href= '$linkAttivazione'>Conferma Registrazione</a></p>";
         if (!$mail->send()){
             throw new Exception($mail->ErrorInfo);
